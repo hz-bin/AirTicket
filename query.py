@@ -15,6 +15,8 @@ from datetime import datetime
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Alignment
 import os
+import subprocess
+import sys
 
 CITY_LABELS = {
     'hgh': '杭州',
@@ -83,24 +85,29 @@ class CTrip_FlightScraper:
             self.driver.get(url)
             
             # 先等待任何内容加载
-            time.sleep(5)
+            time.sleep(3)
             
-            # 尝试多个等待策略
-            try:
-                log_print("尝试等待航班项出现...")
-                WebDriverWait(self.driver, 15).until(
-                    EC.presence_of_all_elements_located((By.CLASS_NAME, "item-inner"))
-                )
-                log_print("✓ 航班项已加载")
-            except:
+            # 尝试多个等待策略（优先级：flight-item -> item-inner -> product）
+            wait_selectors = [
+                ("flight-item", 10),      # 新版携程页面 CSS 类
+                ("item-inner", 10),       # 旧版选择器
+                ("product", 10),          # 备用选择器
+            ]
+            
+            element_found = False
+            for selector, timeout in wait_selectors:
                 try:
-                    log_print("尝试等待product元素...")
-                    WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_all_elements_located((By.CLASS_NAME, "product"))
+                    WebDriverWait(self.driver, timeout).until(
+                        EC.presence_of_all_elements_located((By.CLASS_NAME, selector))
                     )
-                    log_print("✓ product元素已加载")
+                    log_print(f"✓ 航班元素已加载 (类型: {selector})")
+                    element_found = True
+                    break
                 except:
-                    log_print("⚠ 未能等待到预期的航班元素")
+                    continue
+            
+            if not element_found:
+                log_print("⚠ 等待元素超时，尝试从已加载的HTML解析")
             
             # 额外等待确保动态内容加载完毕
             time.sleep(5)
@@ -373,7 +380,7 @@ def display_flights(flights, dep_date, dep_city_code="hgh", arr_city_code="akl")
 def build_url(dep_city="hgh", arr_city="akl", dep_date="2026-09-25"):
     return (
         f"https://flights.ctrip.com/online/list/oneway-{dep_city}-{arr_city}?"
-        f"depdate={dep_date}&cabin=y_s&adult=1&child=0&infant=0"
+        f"depdate={dep_date}&cabin=y_s&adult=1&child=0&infant=0&containstax=1"
     )
 
 

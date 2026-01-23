@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"io"
 	"log"
 	"math/rand"
@@ -29,6 +30,10 @@ var timeWindows = [][2]int{
 }
 
 func main() {
+	// 定义命令行标志
+	once := flag.Bool("once", false, "立即执行一次查询，完成后退出（非守护模式）")
+	flag.Parse()
+
 	rand.Seed(time.Now().UnixNano())
 	baseDir := getBaseDir()
 	logger, logFile := initLogger(baseDir)
@@ -36,6 +41,16 @@ func main() {
 
 	logger.Println("scheduler started")
 
+	// 如果指定了 -once 参数，执行一次后退出
+	if *once {
+		logger.Println("running in once mode (immediate execution)")
+		runAllQueries(baseDir, logger)
+		logger.Println("once mode completed, exiting")
+		return
+	}
+
+	// 默认后台运行模式（守护进程）
+	logger.Println("running in daemon mode (scheduled execution)")
 	for {
 		now := time.Now()
 		plan := buildPlan(now)
