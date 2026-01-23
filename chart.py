@@ -80,6 +80,7 @@ def generate_flight_charts():
                     for idx, row in group_df.iterrows():
                         data_points.append({
                             'time': row['query_time'].strftime('%H:%M:%S'),
+                            'datetime': row['query_time'].strftime('%Y-%m-%d %H:%M:%S'),
                             'price': float(row['price'])
                         })
                     
@@ -115,6 +116,7 @@ def generate_flight_charts():
                         'date': flight_date,
                         'times': times,
                         'prices': prices,
+                        'data': data_points,
                         'dep_time': dep_time,
                         'arr_time': arr_time
                     })
@@ -243,11 +245,14 @@ def generate_flight_charts():
             const chartDom = document.getElementById('chart-' + index);
             const myChart = echarts.init(chartDom);
             
-            // Prepare single series data
+            // Prepare single series data with datetime for tooltip
             const seriesData = [{
                 name: chartData.name,
                 type: 'line',
-                data: chartData.prices,
+                data: chartData.prices.map((price, idx) => ({
+                    value: price,
+                    datetime: chartData.data[idx].datetime
+                })),
                 smooth: true,
                 symbol: 'circle',
                 symbolSize: 6,
@@ -279,10 +284,12 @@ def generate_flight_charts():
                         }
                     },
                     formatter: function(params) {
-                        let html = '<div style="font-weight: bold; margin-bottom: 8px;">' + params[0].axisValue + '</div>';
+                        let datetime = params[0].data.datetime || params[0].axisValue;
+                        let html = '<div style="font-weight: bold; margin-bottom: 8px;">' + datetime + '</div>';
                         params.forEach(param => {
+                            let priceValue = param.data.value || param.value;
                             html += '<div style="margin: 4px 0;"><span style="display:inline-block; width: 10px; height: 10px; background-color: ' + param.color + '; border-radius: 2px; margin-right: 6px;"></span>' 
-                                + param.seriesName + ': <strong style="color: ' + param.color + ';">' + param.value + ' 元</strong></div>';
+                                + param.seriesName + ': <strong style="color: ' + param.color + ';">' + priceValue + ' 元</strong></div>';
                         });
                         return html;
                     }
